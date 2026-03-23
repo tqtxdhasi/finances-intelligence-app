@@ -22,39 +22,38 @@ graph TD
 
 | Area | Technology / Approach |
 |------|----------------------|
-| Framework | React Native (Expo) |
-| State Management | Zustand (or Redux Toolkit) |
-| Navigation | React Navigation (bottom tabs + stack) |
-| API Client | Axios (configured with base URL & API key) |
-| File Handling | `expo-image-picker`, `expo-document-picker`; upload via `multipart/form-data` |
-| Charts | Victory Native (or react-native-chart-kit) |
-| Secure Storage | Expo SecureStore (for API key) |
+| Framework | Any (React Native, Flutter, etc.) |
+| State Management | Any (Zustand, Redux Toolkit, etc.) |
+| Navigation | Any (React Navigation, native navigation) |
+| API Client | Any (Axios, fetch) |
+| File Handling | Camera/gallery pickers, document pickers; upload via multipart/form-data |
+| Charts | Any charting library (Victory Native, react-native-chart-kit, etc.) |
+| Secure Storage | Any secure storage (Expo SecureStore, react-native-keychain) |
 
 ### Backend API
 
 | Area | Technology / Approach |
 |------|----------------------|
-| Runtime | Node.js + Express |
-| Authentication | API key (sent in `X-API-Key` header). Single key per user. |
-| Validation | Joi or Zod |
-| Currency Conversion | Fetch rates from `exchangerate.host`; cache results for 1 hour |
-| File Upload | Multer; store in cloud storage (S3, R2, Supabase) |
-| Export | Generate CSV, JSON, XML, Excel on the fly; serve as downloadable file |
-| Error Handling | Structured JSON responses with appropriate HTTP status codes |
+| Runtime | Any (Node.js, Next.js, Python, etc.) – use GraphQL or REST as preferred |
+| Authentication | API key (sent in header). Single key per user. |
+| Validation | Any (Joi, Zod, Pydantic) |
+| Currency Conversion | Fetch rates from `exchangerate.host` (or any provider). Cache results for 1 hour. |
+| File Upload | Any (Multer for Node, etc.). Store in cloud storage (S3, R2, Supabase). |
+| Export | Generate files (CSV, JSON, XML, Excel) either server‑side and provide a download link, or generate locally on device. |
+| Error Handling | Structured JSON responses with appropriate HTTP status codes. |
 
 ### Database
 
 | Aspect | Details |
 |--------|---------|
 | Type | PostgreSQL (or any SQL database) |
-| Migrations | Knex or Prisma |
 | Indexes | On `receipts.date`, `items.receipt_id`, `product_aliases.alias`, etc. |
 
 ### File Storage
 
 | Aspect | Details |
 |--------|---------|
-| Service | Supabase Storage, Cloudflare R2, or AWS S3 |
+| Service | Any (Supabase Storage, Cloudflare R2, AWS S3, etc.) |
 | Naming | UUID‑based filenames to avoid collisions |
 | URLs | Public URLs (for V1) – data is private to the user but no authentication required to view files. If needed, signed URLs can be used later. |
 
@@ -62,9 +61,9 @@ graph TD
 
 | Aspect | Details |
 |--------|---------|
-| Provider | [exchangerate.host](https://exchangerate.host) (free, no API key required) |
-| Endpoint | `https://api.exchangerate.host/convert?from={original_currency}&to={primary_currency}&date={date}` |
-| Fallback | If date is not provided, use latest rate. If API fails, return error and do not save receipt. |
+| Provider | Any (exchangerate.host is free and simple) |
+| Endpoint | `https://api.exchangerate.host/convert?from={original_currency}&to={primary_currency}&date={date}` (example) |
+| Fallback | If the API fails, save the receipt as a **local draft** that auto‑deletes after several hours (e.g., 24h). User can retry later. |
 
 ## Data Flow
 
@@ -74,6 +73,7 @@ graph TD
 2. App uploads file to backend (multipart).
 3. Backend stores file → receives URL.
 4. Backend fetches exchange rate (based on receipt date or real‑time).
+   - If rate fetch fails, return error; app stores draft locally.
 5. Backend validates that `original_total` equals sum of item `original_price`.
 6. Backend inserts receipt and items into database.
 7. Backend returns receipt ID to app.
@@ -94,7 +94,9 @@ graph TD
 
 - App requests export with format and date range.
 - Backend queries all matching receipts + items, formats file (CSV, JSON, XML, Excel).
-- Streams file as response with `Content-Disposition: attachment`.
+- Option A: Stream file as response with `Content-Disposition: attachment`.
+- Option B: Generate file, upload to cloud storage, return a temporary download link.
+- Option C: Generate file entirely on the device (e.g., using client‑side libraries) – suitable for small datasets.
 
 ### 5. Import
 
@@ -106,7 +108,7 @@ graph TD
 
 | Area | Measure |
 |------|---------|
-| API Key | Stored in Expo SecureStore; sent in `X-API-Key` header for every request. |
+| API Key | Stored securely on device; sent in `X-API-Key` header for every request. |
 | CORS | Restrict to mobile app domain (or specific origins). |
 | File Upload | Validate file type (image/jpeg, image/png, application/pdf) and size (e.g., ≤10 MB). |
 | No User Accounts | Single user per backend instance; no registration/login. The API key acts as the sole authentication. |
@@ -123,3 +125,4 @@ graph TD
 - **No local database** – reduces complexity; sync not required.
 - **Manual entry first** – OCR is a future enhancement.
 - **Precision over convenience** – strict validation (total = sum of items) and transaction‑based imports.
+- **Fallback on currency API failure** – save local draft to avoid data loss.
