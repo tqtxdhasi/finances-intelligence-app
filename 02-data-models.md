@@ -1,9 +1,3 @@
-
----
-
-## 📄 File 3: `02-data-models.md`
-
-```markdown
 # 02 – Data Models & Database Schema
 
 All tables use UUID primary keys. Timestamps are stored as UTC.
